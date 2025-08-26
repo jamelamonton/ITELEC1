@@ -1,0 +1,292 @@
+//onCreate() sample codes
+
+Example: A simple counter app
+This app has a TextView to display a number and a Button to increment the number. All initialization logic for these components is placed inside the onCreate() method. 
+
+import android.os.Bundle
+import android.widget.Button
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var countTextView: TextView
+    private lateinit var incrementButton: Button
+    private var count = 0
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Call the superclass method, which is required.
+        super.onCreate(savedInstanceState)
+
+        // Set the UI from the layout XML file.
+        setContentView(R.layout.activity_main)
+
+        // Get references to the UI components by their IDs.
+        countTextView = findViewById(R.id.countTextView)
+        incrementButton = findViewById(R.id.incrementButton)
+
+        // Set up the button's click listener.
+        incrementButton.setOnClickListener {
+            // Increment the counter.
+            count++
+            // Update the TextView with the new count.
+            countTextView.text = count.toString()
+        }
+    }
+}
+
+
+//onStart() sample codes
+
+
+Example: Registering and unregistering a broadcast receiver
+A broadcast receiver listens for system-wide announcements, like a change in network connectivity or the battery level. In this example, onStart() is used to register a receiver that listens for changes in battery level, and onStop() is used to unregister it to conserve resources. 
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() {
+
+    private val TAG = "LifecycleDemo"
+    private lateinit var batteryReceiver: BroadcastReceiver
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        Log.d(TAG, "onCreate() called")
+
+        // Initialize the BroadcastReceiver
+        batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val batteryStatus: Int? = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val statusMessage = "Battery level: $batteryStatus%"
+                Toast.makeText(context, statusMessage, Toast.LENGTH_SHORT).show()
+                Log.d(TAG, statusMessage)
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.d(TAG, "onStart() called. Registering battery receiver.")
+
+        // Create an IntentFilter for the battery change action
+        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+
+        // Register the receiver. This is crucial for resources that must be active while the activity is visible.
+        registerReceiver(batteryReceiver, intentFilter)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.d(TAG, "onStop() called. Unregistering battery receiver.")
+
+        // Unregister the receiver to prevent battery drain while the activity is not visible.
+        unregisterReceiver(batteryReceiver)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy() called.")
+    }
+}
+
+
+//onResume() and onPause() sample codes
+
+
+Example: Starting and stopping a game loop in onResume() and onPause()
+
+onResume() is called when the activity is in the foreground and has focus. It's the ideal place to start or resume tasks that require user interaction, such as animations, game loops, or camera previews. This is paired with onPause(), which is called when the activity loses focus, to pause these resource-intensive tasks. 
+
+
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import java.lang.Runnable
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var gameCounterTextView: TextView
+    private var count = 0
+    
+    // Use a Handler to post a message to the message queue, which runs our game loop.
+    private val handler = Handler(Looper.getMainLooper())
+    
+    // This is the task that we want to run repeatedly.
+    private val gameLoop: Runnable = object : Runnable {
+        override fun run() {
+            count++
+            gameCounterTextView.text = "Game Score: $count"
+            // Schedule the next run after 1000 milliseconds (1 second).
+            handler.postDelayed(this, 1000)
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        gameCounterTextView = findViewById(R.id.gameCounterTextView)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Start the game loop when the activity is visible and has focus.
+        // This is safe because onPause will stop it when the user leaves.
+        handler.postDelayed(gameLoop, 1000)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Stop the game loop to save CPU and battery when the activity is no longer in the foreground.
+        handler.removeCallbacks(gameLoop)
+    }
+}
+
+
+//onStop() sample codes
+
+Example: An app that saves user progress
+Imagine a note-taking app where you want to save the user's progress to a database when they leave the app. You shouldn't do this in onPause() because that method must execute very quickly to not delay the transition to the next activity. onStop() provides a safer window for more intensive operations.
+
+import android.os.Bundle
+import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
+import com.yourpackage.NoteViewModel // Assume a ViewModel for database ops
+import com.yourpackage.Note // Assume a Note data class
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+class MainActivity : AppCompatActivity() {
+
+    private val TAG = "LifecycleDemo"
+    private lateinit var noteViewModel: NoteViewModel
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        Log.d(TAG, "onCreate() called")
+
+        // Initialize your ViewModel
+        noteViewModel = ViewModelProvider(this).get(NoteViewModel::class.java)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.d(TAG, "onStop() called. Saving user data and releasing heavy resources.")
+
+        // In a real app, you would get the content from a UI element
+        // For this example, we'll simulate saving a new note
+        val noteContent = "User was last active here."
+        val timestamp = System.currentTimeMillis()
+        
+        // Use a coroutine to perform the database operation on a background thread
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                noteViewModel.saveNote(Note(content = noteContent, timestamp = timestamp))
+                Log.d(TAG, "Note successfully saved in onStop()")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save note in onStop(): ${e.message}")
+            }
+        }
+    }
+}
+
+
+//onDestroy() sample codes
+
+Example: An activity with a database connection and a background thread
+This example shows how to correctly close a database connection and cancel a background coroutine when the activity is destroyed.
+
+
+import android.os.Bundle
+import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.*
+import java.io.Closeable
+import kotlin.coroutines.CoroutineContext
+
+// This represents a dummy database connection for demonstration.
+// In a real app, you would use a library like Room.
+class DummyDatabaseConnection : Closeable {
+    override fun close() {
+        Log.d("LifecycleDemo", "Closing DummyDatabaseConnection...")
+        // Simulate a resource release.
+        // For example, db.close() in a real app.
+    }
+}
+
+class MainActivity : AppCompatActivity() {
+
+    private val TAG = "LifecycleDemo"
+    private var databaseConnection: DummyDatabaseConnection? = null
+
+    // A coroutine scope to manage background tasks.
+    private val activityScope = CoroutineScope(Dispatchers.Default)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        Log.d(TAG, "onCreate() called")
+
+        // Open a database connection when the activity is created.
+        databaseConnection = DummyDatabaseConnection()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.d(TAG, "onStart() called")
+
+        // Launch a background task. This task will be cancelled in onDestroy().
+        activityScope.launch {
+            try {
+                Log.d(TAG, "Coroutine started.")
+                delay(5000) // Simulate some work
+                Log.d(TAG, "Coroutine finished its work.")
+            } catch (e: CancellationException) {
+                Log.d(TAG, "Coroutine was cancelled.")
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy() called")
+
+        // 1. Cancel all coroutines in the scope.
+        // This is crucial to prevent memory leaks.
+        activityScope.cancel()
+
+        // 2. Close the database connection.
+        // This prevents holding onto resources after the activity is gone.
+        databaseConnection?.close()
+        databaseConnection = null
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
